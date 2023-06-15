@@ -1,0 +1,26 @@
+--ubacivanje nove kolone u tabelu
+ALTER TABLE Proizvod
+ADD PocetakProdaje DATETIME NULL
+
+
+UPDATE KategorijaProizvoda
+SET Name = 'Bicikle'
+WHERE ProductCategoryID = 1
+
+--ubacivanje vrednosti u kolonu
+UPDATE Proizvod
+SET PocetakProdaje = '2022-03-27' --Kada ne postavimo uslov sve kolone ce se popuniti
+
+UPDATE Proizvod
+SET PocetakProdaje = GETDATE() --funkcija koja uzima danasnji datum i vreme
+
+DELETE FROM Proizvod
+WHERE CategoryID = 3 --brisanje redova na osnovu uslova
+
+DELETE FROM Proizvod
+WHERE ProductID IN (744, 754, 870) 
+
+DELETE FROM Proizvod --brise sve podatke u tabeli 
+
+ALTER TABLE Proizvod
+DROP COLUMN CategoryID --brisemo kolonu iz tabele
