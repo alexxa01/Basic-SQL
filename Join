@@ -1,0 +1,21 @@
+--Naziv proizvoda, cena i naziv kategorije proizvoda koji kostaju najmanje 20
+SELECT ProductName, UnitPrice, CategoryName
+  FROM Products
+ INNER JOIN Categories ON Products.CategoryID = Categories.CategoryID
+ WHERE UnitPrice >= 20
+ 
+--Naziv proizvoda, cena i naziv kategorije proizvoda koji
+--kostaju najmanje 20
+--su morska hrana (Seafood)
+SELECT ProductName, UnitPrice, CategoryName
+  FROM Products
+ INNER JOIN Categories ON Products.CategoryID = Categories.CategoryID
+ WHERE UnitPrice >= 20
+   AND CategoryName = 'Seafood'
+   
+--Naziv i cena najskupljeg mesecnog proizvoda (Dairy Products)
+SELECT TOP 1 ProductName, UnitPrice
+  FROM Products
+ INNER JOIN Categories ON Products.CategoryID = Categories.CategoryID
+ WHERE CategoryName = 'Dairy Products'
+ ORDER BY UnitPrice DESC
