@@ -1,0 +1,384 @@
+USE master 
+GO
+
+-- ako baza postoji
+IF DB_ID('Vezba10') IS NOT NULL
+BEGIN
+	-- stavimo da moze samo jedna konekcija (ova sada)
+    ALTER DATABASE Vezba10
+    SET SINGLE_USER
+    WITH ROLLBACK IMMEDIATE
+
+	-- brisemo bazu
+	DROP DATABASE Vezba10
+END
+
+-- kreiramo bazu
+CREATE DATABASE Vezba10
+-- generalna latinica, CI - poredjenje slova ne mari za veliko/malo slovo
+COLLATE SQL_Latin1_General_CP1_CI_AS
+GO
+
+-- koristimo bazu
+USE Vezba10
+GO
+
+-- Kreiramo tabelu
+CREATE TABLE Student (
+	StudentID INT IDENTITY(1,1) NOT NULL,
+	Ime NVARCHAR(30) NOT NULL,
+	Prezime NVARCHAR(30) NOT NULL,
+	JMBG CHAR(13) NOT NULL,
+	DatumRodjenja DATE NOT NULL,
+	Telefon VARCHAR(15) NULL,
+	Godina AS DATEDIFF(YEAR, DatumRodjenja, GETDATE())
+)
+GO
+
+INSERT INTO Student (Ime, Prezime, JMBG, DatumRodjenja)
+VALUES (N'Marko',  N'Petrović',  '0101999710111', '2000-10-05'),
+	   (N'Jovan',  N'Narković',  '0101999710222', '2000-11-06'),
+	   (N'Nikola', N'Tadić',     '0101999710333', '1999-08-07'),
+	   (N'Dejan',  N'Tošić',     '0101999710444', '1997-10-08'),
+	   (N'Nataša', N'Nikolić',   '0101999710555', '2001-10-09'),
+	   (N'Maja',   N'Jovanović', '0101999710666', '2001-02-01'),
+	   (N'Jovana', N'Kovačević', '0101999710777', '1999-03-02'),
+	   (N'Milica', N'Janković',  '0101999710888', '1998-04-03'),
+	   (N'Tijana', N'Trajković', '0101999710999', '2000-05-04')
+GO
+
+-- Potvrda da su podaci tu
+SELECT * FROM Student
+
+-- INSERT komanda
+-- ==============
+INSERT INTO Student (StudentID, Ime, Prezime, JMBG, DatumRodjenja, Godina)
+VALUES (10, N'Ana', N'Marković', '0202998715255', '1998-02-02', 21)
+-- izgleda kao da bi radilo ali zapravo ne bi
+-- 1. preskacemo identity (StudentID)
+-- 2. preskacemo izracunata polja (Godina)
+-- 3. _možemo_ da preskocimo NULL polja (Telefon)
+INSERT INTO Student (Ime, Prezime, JMBG, DatumRodjenja)
+VALUES (N'Ana', N'Marković', '0202998715255', '1998-02-02')
+
+-- UPDATE komanda
+-- ==============
+UPDATE Student
+-- sva polja sem PK (osim izracunatih polja)
+   SET Ime = N'Ana',
+	   Prezime = N'Marković',
+	   JMBG = '0202998715255',
+	   DatumRodjenja = '1998-02-02',
+	   Telefon = '063/111-22-33'
+-- gde je PK = vrednost
+ WHERE StudentID = 10
+
+ -- DELETE komanda
+-- ==============
+DELETE FROM Student
+-- gde je PK = vrednost
+ WHERE StudentID = 10
+
+
+-- CREATE "zahteva" GO pre i posle
+GO
+
+-- Procedura je unapred pripremljen kod koji se cuva kako bi se koristio vise puta
+
+-- Procedura bez ulaznih parametara
+-- ================================
+CREATE PROCEDURE BezParametara
+AS
+BEGIN
+	-- mozemo da vratimo rezultat ako hocemo
+	SELECT * FROM Student
+END
+GO
+
+-- Kako pozivamo proceduru
+EXEC BezParametara
+--ili
+EXECUTE BezParametara
+
+GO -- zbog EXECUTE iznad
+
+-- Procedura sa ulaznim parametrima
+-- ================================
+CREATE PROCEDURE SaParametrima (
+	-- @naziv TIP
+	-- bez NULL i slicno
+	@minimumGodina INT
+)
+AS
+BEGIN
+	SELECT * FROM Student
+	 WHERE Godina >= @minimumGodina
+END
+GO
+
+-- Kako pozivamo proceduru
+EXECUTE SaParametrima 21
+
+GO -- zbog EXECUTE iznad
+
+-- Kako ih brisemo
+DROP PROCEDURE BezParametara
+DROP PROCEDURE SaParametrima
+GO
+
+-- PRAKTICNI PRIMERI
+-- =================
+
+GO
+
+/*
+treba vam u vasem radu za svaku tabelu ponaosob
+nazovite ih kako god da smatrate da ima smisla
+dole su stavljeni sufiksi INS, UPD, DEL
+a moze i Ubaci, Izmeni, Obrisi ili kako god da hocete
+*/
+
+CREATE PROCEDURE Student_INS (
+	-- bez identity, sa NULL poljima
+	@Ime NVARCHAR(30),
+	@Prezime NVARCHAR(30),
+	@JMBG CHAR(13),
+	@DatumRodjenja DATE,
+	@Telefon VARCHAR(15)
+)
+AS
+BEGIN
+	INSERT INTO Student (Ime, Prezime, JMBG, DatumRodjenja, Telefon)
+	VALUES (@Ime, @Prezime, @JMBG, @DatumRodjenja, @Telefon)
+END
+GO
+
+EXEC Student_INS N'Marina', N'Marinkovic', '1112999871234', '1999-11-11', '063/111-22-33'
+GO 
+
+SELECT * FROM Student
+
+GO
+CREATE PROCEDURE Student_UPD (
+	-- svi atributi sem izracunatih
+	@StudentID INT,
+	@Ime NVARCHAR(30),
+	@Prezime NVARCHAR(30),
+	@JMBG CHAR(13),
+	@DatumRodjenja DATE,
+	@Telefon VARCHAR(15)
+)
+AS
+BEGIN
+	UPDATE Student
+	   SET Ime = @Ime,
+		   Prezime = @Prezime,
+		   JMBG = @JMBG,
+		   DatumRodjenja = @DatumRodjenja,
+		   Telefon = @Telefon
+	 WHERE StudentID = @StudentID
+END
+GO
+
+EXEC Student_UPD 11, N'Nevena', N'Vukotic', '01029994789456', '1999-02-01', '064-159-4489'
+GO
+
+CREATE PROCEDURE Student_DEL (
+	-- samo PK (svi atributi PK-a)
+	@StudentID INT
+)
+AS
+BEGIN
+	DELETE FROM Student
+	 WHERE StudentID = @StudentID
+END
+GO
+
+EXEC Student_DEL 11 
+GO
+
+-- TRANSAKCIJE
+-- ===========
+
+/*
+
+situacija:
+imamo dva racuna sa iznosom. hocemo da uradimo transfer.
+kako mozemo da budemo sigurni da taj transfer sme da se desi?
+*/
+
+CREATE TABLE Novcanik (
+	NovcanikID INT IDENTITY NOT NULL,
+	Vlasnik NVARCHAR(50) NOT NULL,
+	Iznos DECIMAL(9, 2) NOT NULL CHECK (Iznos >= 0)
+)
+GO
+
+INSERT INTO Novcanik (Vlasnik, Iznos) VALUES (N'Марко Марковић', 5000)
+INSERT INTO Novcanik (Vlasnik, Iznos) VALUES (N'Јован Јовановић', 7000)
+
+-- trenutno stanje racuna
+SELECT * FROM Novcanik
+
+-- ukupan iznos u opticaju
+SELECT SUM(Iznos) FROM Novcanik
+GO
+
+CREATE PROCEDURE PrebaciNovac (
+	@SaRacuna INT,
+	@NaRacun INT,
+	@Iznos DECIMAL(9, 2)
+)
+AS
+BEGIN
+	UPDATE Novcanik
+	   SET Iznos -= @Iznos
+	 WHERE NovcanikID = @SaRacuna
+
+	UPDATE Novcanik
+	   SET Iznos += @Iznos
+	 WHERE NovcanikID = @NaRacun
+END
+GO
+
+EXECUTE PrebaciNovac 1, 2, 3000
+SELECT * FROM Novcanik
+
+-- ali sta ako izvrsimo opet
+EXECUTE PrebaciNovac 1, 2, 3000
+-- doslo je do greske zbog CHECK ogranicenja
+
+-- medjutim hajde da pogledamo stanje
+SELECT * FROM Novcanik
+
+-- ukupan iznos u opticaju
+SELECT SUM(Iznos) FROM Novcanik
+GO
+
+/*
+transakcija:
+ili ce se sve izvrsiti, ili se nista nece izvrsiti
+*/
+
+ALTER PROCEDURE PrebaciNovac (
+	@SaRacuna INT,
+	@NaRacun INT,
+	@Iznos DECIMAL(9, 2)
+)
+AS
+BEGIN
+
+	BEGIN TRY
+		BEGIN TRANSACTION --BEGIN TRANSACTION povecava @@TRANCOUNT za 1
+
+		UPDATE Novcanik
+		   SET Iznos -= @Iznos
+		 WHERE NovcanikID = @SaRacuna
+	
+		UPDATE Novcanik
+		   SET Iznos += @Iznos
+		 WHERE NovcanikID = @NaRacun
+
+		COMMIT TRANSACTION
+	END TRY
+	BEGIN CATCH
+		IF @@TRANCOUNT > 0 
+		BEGIN
+			ROLLBACK TRANSACTION 
+			
+			SELECT CONCAT(N'Došlo je do greške broj ', ERROR_NUMBER(), N': ', ERROR_MESSAGE())
+		END
+	END CATCH
+END
+GO
+
+-- originalno stanje
+UPDATE Novcanik SET Iznos = 5000 WHERE NovcanikID = 1
+UPDATE Novcanik SET Iznos = 7000 WHERE NovcanikID = 2
+SELECT * FROM Novcanik
+SELECT SUM(Iznos) FROM Novcanik
+
+-- prvo prebacivanje
+EXECUTE PrebaciNovac 1, 2, 3000
+SELECT * FROM Novcanik
+
+-- drugo prebacivanje
+EXECUTE PrebaciNovac 1, 2, 3000
+SELECT * FROM Novcanik
+SELECT SUM(Iznos) FROM Novcanik
+
+GO
+-- procedura sa transakcijom
+CREATE PROCEDURE INS_Student (
+    @Ime NVARCHAR(30),
+	@Prezime NVARCHAR(30),
+	@JMBG CHAR(13),
+	@DatumRodjenja DATE,
+	@Telefon VARCHAR(15)
+)
+AS 
+	BEGIN
+		BEGIN TRY
+			BEGIN TRANSACTION
+				INSERT INTO Student(Ime, Prezime, JMBG, DatumRodjenja, Telefon)
+				VALUES (@Ime, @Prezime, @JMBG, @DatumRodjenja, @Telefon)	
+			END TRY
+		BEGIN CATCH
+			IF @@ERROR<>0
+				BEGIN
+					ROLLBACK TRANSACTION
+				END
+		END CATCH
+	COMMIT TRANSACTION
+END
+GO
+
+CREATE PROCEDURE UPD_Student (
+	@StudentID INT,
+    @Ime NVARCHAR(30),
+	@Prezime NVARCHAR(30),
+	@JMBG CHAR(13),
+	@DatumRodjenja DATE,
+	@Telefon VARCHAR(15)
+)
+AS 
+	BEGIN
+		BEGIN TRY
+			BEGIN TRANSACTION
+				UPDATE Student
+				SET Ime = @Ime,
+					Prezime = @Prezime,
+					JMBG = @JMBG,
+					DatumRodjenja = @DatumRodjenja,
+					Telefon = @Telefon
+				WHERE StudentID = @StudentID
+			END TRY
+		BEGIN CATCH
+			IF @@ERROR<>0
+				BEGIN
+					ROLLBACK TRANSACTION
+				END
+		END CATCH
+	COMMIT TRANSACTION
+END
+GO
+
+CREATE PROCEDURE DEL_Student (
+	@StudentID INT
+)
+AS 
+	BEGIN
+		BEGIN TRY
+			BEGIN TRANSACTION
+				DELETE FROM Student
+				WHERE StudentID = @StudentID
+			END TRY
+		BEGIN CATCH
+			IF @@ERROR<>0
+				BEGIN
+					ROLLBACK TRANSACTION
+				END
+		END CATCH
+	COMMIT TRANSACTION
+END
+GO
