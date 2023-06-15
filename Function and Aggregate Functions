@@ -1,0 +1,318 @@
+ --Razlika izmedju procedure i funkcije :
+--   1. funkcija vraca povratnu vrednost i odnosi se na skup instrukcija koje primaju 
+--      input od korisnika za obavljanje odredjenih zadataka
+--   2. procedure se odnose na skup razlicitih instrukcija koje primaju ulaz 
+--      za obavljanje bilo kog zadatka i ne vracaju nikakvu vrednost nakon inputa
+--   3. funkcija ne moze da se koristi za unos, brisanje i izmenu podataka
+
+
+ --Funkcije bez parametara
+USE NORTHWIND
+GO
+
+GO
+CREATE FUNCTION Funkcija()
+RETURNS TABLE AS RETURN
+(
+SELECT p.ProductName, p.UnitPrice, c.CategoryName, c.Description
+FROM Products as p
+INNER JOIN Categories as c on p.CategoryID = c.CategoryID
+)
+GO
+--Pozivanje funkcije bez parametara
+SELECT * FROM Funkcija()
+
+--Funkcija sa parametrima
+GO
+CREATE FUNCTION Izracunaj(
+@PrviBroj int,
+@DrugiBroj int
+)
+RETURNS INT
+AS
+BEGIN
+DECLARE @TreciBroj int
+SET @TreciBroj=2*@PrviBroj*@DrugiBroj
+RETURN(@TreciBroj)
+END
+
+SELECT dbo.Izracunaj(2,6)
+
+GO
+
+
+USE Studenti
+GO
+
+CREATE FUNCTION FStudenti(
+@id_mesto int
+)
+RETURNS TABLE AS RETURN
+(SELECT m.naziv, s.student_ime, s.student_prezime
+FROM sif_mesto as m
+INNER JOIN student as s on s.id_mesto_rodjenja=m.id_mesto
+WHERE id_mesto = @id_mesto)
+
+select * from FStudenti(77)
+
+USE NORTHWND
+GO
+
+-- svi proizvodi
+SELECT * FROM Products AS p
+
+-- najskuplji proizvodi (UnitPrice - cena proizvoda)
+SELECT * FROM Products AS p
+ ORDER BY p.UnitPrice DESC
+
+-- pet najskupljih proizvoda
+SELECT TOP 5 *
+  FROM Products AS p
+ ORDER BY p.UnitPrice DESC
+
+-- vrednost proizvoda na lageru (UnitsInStock - na stanju)
+SELECT p.ProductID,
+       p.ProductName AS Proizvod,
+       p.UnitPrice * p.UnitsInStock AS [Na stanju]
+  FROM Products AS p
+
+-- ali kolika je ukupna vrednost? koliko proizvoda imamo?
+
+/*
+Funkcije nad vise vrednosti (Aggregate)
+SUM    - zbir
+COUNT  - broj
+MIN    - najmanja vredonst
+MAX    - najveca vrednost
+AVG    - prosecna vrednost
+*/
+
+SELECT COUNT(p.ProductID) AS [Broj razlicitih proizvoda],
+       SUM(p.UnitsInStock) AS [Ukupno na stanju],
+	   MIN(p.UnitPrice) AS [Najniza cena],
+	   MAX(p.UnitPrice) AS [Najvisa cena],
+	   AVG(p.UnitPrice) AS [Prosecna cena]
+  FROM Products AS p
+
+-- Prosecna vrednost = Zibr / Broj
+SELECT SUM(p.UnitPrice) / COUNT(p.UnitPrice),
+	   AVG(p.UnitPrice)
+  FROM Products AS p
+
+-- Ukupan iznos na lageru
+SELECT p.ProductID,
+       p.ProductName AS Proizvod,
+       p.UnitPrice * p.UnitsInStock AS [Na stanju]
+  FROM Products AS p
+
+SELECT SUM(p.UnitPrice * p.UnitsInStock) AS [Ukupno na stanju]
+  FROM Products AS p
+
+-- Naziv proizvoda, naziv dobavljaca, cena proizvoda
+SELECT p.ProductName AS Proizvod,
+	   s.CompanyName AS Dobavljac,
+	   p.UnitPrice   AS Cena
+  FROM Products AS p
+ INNER JOIN Suppliers AS s
+    ON p.SupplierID = s.SupplierID
+
+/*
+GRUPISANJE
+*/
+
+-- najjeftiniji i najskuplji proizvod po dobavljacu
+
+-- ovo nece raditi
+SELECT s.CompanyName    AS Dobavljac,
+	   MIN(p.UnitPrice) AS Najjeftiniji,
+	   MAX(p.UnitPrice) AS Najskuplji
+  FROM Products AS p
+ INNER JOIN Suppliers AS s
+    ON p.SupplierID = s.SupplierID
+
+-- ali ovako hoce, moramo da grupisemo
+SELECT s.CompanyName    AS Dobavljac,
+	   MIN(p.UnitPrice) AS Najjeftiniji,
+	   MAX(p.UnitPrice) AS Najskuplji
+  FROM Products AS p
+ INNER JOIN Suppliers AS s
+    ON p.SupplierID = s.SupplierID
+ GROUP BY s.CompanyName
+
+/*
+Agregirane funkcije (funkcije nad vise vrednosti) mogu da se koriste kada:
+1) Su jedine u SELECT-u i tada mogu bez grupisanja
+2) Kada se koristi grupisanje
+
+Kada koristimo grupisanje, polja u SELECT-u moraju da budu:
+1) Unutar agregirane funkcije
+2) Deo grupisanja
+*/
+
+-- Naziv proizvoda, naziv dobavljaca, naziv kategorije, cena proizvoda
+SELECT p.ProductName  AS Proizvod,
+	   s.CompanyName  AS Dobavljac,
+	   c.CategoryName AS Kategorija,
+	   p.UnitPrice    AS Cena
+  FROM Products AS p
+ INNER JOIN Suppliers AS s
+    ON p.SupplierID = s.SupplierID
+ INNER JOIN Categories AS c
+    ON p.CategoryID = c.CategoryID
+
+-- najjeftiniji i najskuplji proizvod kao i ukupan broj proizvoda
+-- po dobavljacu i zatim po kategoriji
+
+-- ovo nece raditi
+SELECT s.CompanyName      AS Dobavljac,
+	   c.CategoryName     AS Kategorija,
+	   MIN(p.UnitPrice)   AS Najjeftiniji,
+	   MAX(p.UnitPrice)   AS Najskuplji,
+	   COUNT(p.ProductID) AS BrojProizvoda
+  FROM Products AS p
+ INNER JOIN Suppliers AS s
+    ON p.SupplierID = s.SupplierID
+ INNER JOIN Categories AS c
+    ON p.CategoryID = c.CategoryID
+ GROUP BY s.CompanyName
+  
+-- ali ovako hoce, moramo da grupisemo po svakom polju
+SELECT s.CompanyName      AS Dobavljac,
+	   c.CategoryName     AS Kategorija,
+	   MIN(p.UnitPrice)   AS Najjeftiniji,
+	   MAX(p.UnitPrice)   AS Najskuplji,
+	   COUNT(p.ProductID) AS BrojProizvoda
+  FROM Products AS p
+ INNER JOIN Suppliers AS s
+    ON p.SupplierID = s.SupplierID
+ INNER JOIN Categories AS c
+    ON p.CategoryID = c.CategoryID
+ GROUP BY s.CompanyName, c.CategoryName
+
+/*
+Filtriranje
+*/
+
+-- hocemo isto kao i prethodno ali samo za proizvode koje imamo na stanju
+SELECT s.CompanyName      AS Dobavljac,
+	   c.CategoryName     AS Kategorija,
+	   MIN(p.UnitPrice)   AS Najjeftiniji,
+	   MAX(p.UnitPrice)   AS Najskuplji,
+	   COUNT(p.ProductID) AS BrojProizvoda
+  FROM Products AS p
+ INNER JOIN Suppliers AS s
+    ON p.SupplierID = s.SupplierID
+ INNER JOIN Categories AS c
+    ON p.CategoryID = c.CategoryID
+ WHERE p.UnitsInStock > 0 -- WHERE ide pre GROUP BY
+ GROUP BY s.CompanyName, c.CategoryName
+
+
+-- hocemo isto kao i prethodno ali za kategorije proizvoda koje imaju vise od jednog proizvoda
+
+-- ovo nece raditi
+SELECT s.CompanyName      AS Dobavljac,
+	   c.CategoryName     AS Kategorija,
+	   MIN(p.UnitPrice)   AS Najjeftiniji,
+	   MAX(p.UnitPrice)   AS Najskuplji,
+	   COUNT(p.ProductID) AS BrojProizvoda
+  FROM Products AS p
+ INNER JOIN Suppliers AS s
+    ON p.SupplierID = s.SupplierID
+ INNER JOIN Categories AS c
+    ON p.CategoryID = c.CategoryID
+ WHERE p.UnitsInStock > 0
+   AND COUNT(p.ProductID) > 1
+ GROUP BY s.CompanyName, c.CategoryName
+
+-- ali ovo hoce
+SELECT s.CompanyName      AS Dobavljac,
+	   c.CategoryName     AS Kategorija,
+	   MIN(p.UnitPrice)   AS Najjeftiniji,
+	   MAX(p.UnitPrice)   AS Najskuplji,
+	   COUNT(p.ProductID) AS BrojProizvoda
+  FROM Products AS p
+ INNER JOIN Suppliers AS s
+    ON p.SupplierID = s.SupplierID
+ INNER JOIN Categories AS c
+    ON p.CategoryID = c.CategoryID
+ WHERE p.UnitsInStock > 0
+ GROUP BY s.CompanyName, c.CategoryName
+HAVING COUNT(p.ProductID) > 1
+
+/*
+Sve vrednosti i unikatne vrednosti
+*/
+
+SELECT * FROM Customers
+
+--broj razlicitih gradova
+SELECT DISTINCT City FROM Customers -- 69 razlicitih gradova
+SELECT COUNT(City) FROM Customers   -- 91 jer brojimo ukupan broj gradova
+
+--broj razlicitih drzava
+SELECT DISTINCT Country FROM Customers -- 21 razlicita zemlja
+SELECT COUNT(Country) FROM Customers   -- 91 jer brojimo ukupan broj zemalja
+
+--Sve zemlje i broj gradova u svakoj
+SELECT Country, COUNT(City) AS BrojGradova
+  FROM Customers
+ GROUP BY Country
+
+--svi gradovi su isti
+SELECT * FROM Customers
+ WHERE Country = 'Argentina'
+
+--zato sto je podrazumevano ALL
+SELECT Country, COUNT(ALL City) AS BrojGradova
+  FROM Customers
+ GROUP BY Country
+
+--slicno kao i
+SELECT ALL Country FROM Customers -- 91 red
+--za razliku od
+SELECT DISTINCT Country FROM Customers -- 21 red
+
+--ovo su broj unikatnih gradova po zemljama
+SELECT Country, COUNT(DISTINCT City) AS BrojGradova
+  FROM Customers
+ GROUP BY Country
+
+--zemlje sortirane po broju razlicitih gradova opadajuce
+SELECT Country, COUNT(DISTINCT City) AS BrojGradova
+  FROM Customers
+ GROUP BY Country
+ ORDER BY BrojGradova DESC -- jedino ORDER BY moze da se pozove na alijas polja
+
+--zemlje sa 3 ili vise razlicitih gradova sortirane po broju gradova rastuce
+SELECT Country, COUNT(DISTINCT City) AS BrojGradova
+  FROM Customers
+ GROUP BY Country
+HAVING COUNT(DISTINCT City) > 2 -- ili > 2 ili >= 3; posto su u pitanju celi brojevi - mozemo da biramo
+ ORDER BY BrojGradova ASC -- ASC je rastuce, DESC je opadajuce
+
+SELECT o.ShipCountry, SUM(od.Quantity) AS UkupnaKolicina
+  FROM Orders AS o
+ INNER JOIN [Order Details] AS od ON o.OrderID = od.OrderID
+ INNER JOIN Employees AS e ON o.EmployeeID = e.EmployeeID -- spojimo sa tabelom Employees
+ WHERE e.FirstName = 'Nancy' -- trazimo po imenu
+ GROUP BY o.ShipCountry
+
+Ukupan broj i prosecna vrednost svih racuna po zemlji
+--za zemlje koje su napravile bar 100 racuna
+--sortirano po prosecnom iznosu u opadajucem redosledu
+SELECT o.ShipCountry,
+	   COUNT(o.OrderID) AS UkupanBrojRacuna,
+	   AVG(UnitPrice * Quantity) AS ProsecanIznosRacuna -- isto sto i SUM(UnitPrice * Quantity) / COUNT(o.OrderID)
+  FROM Orders AS o
+ INNER JOIN [Order Details] AS od ON o.OrderID = od.OrderID
+ GROUP BY o.ShipCountry
+HAVING COUNT(o.OrderID) >= 100
+ ORDER BY ProsecanIznosRacuna DESC
+ 
+ SELECT CONCAT(e.TitleOfCourtesy, ' ', e.FirstName, ' ', e.LastName) AS Zaposleni,
+	   e.Title AS Pozicija,
+	   CONCAT(m.TitleOfCourtesy, ' ', m.FirstName, ' ', m.LastName) AS Menadzer
+  FROM Employees AS e
+  LEFT JOIN Employees AS m ON e.ReportsTo = m.EmployeeID
+ ORDER BY Menadzer, Zaposleni
